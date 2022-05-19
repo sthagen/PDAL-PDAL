@@ -1,0 +1,5 @@
+sphinx
+breathe
+sphinxcontrib-bibtex
+sphinx_rtd_theme
+sphinxcontrib-spelling
