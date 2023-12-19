@@ -93,45 +93,50 @@ TEST(LasReaderTest, create)
 
 TEST(LasReaderTest, header)
 {
-    PointTable table;
-    Options ops;
-    ops.add("filename", Support::datapath("las/simple.las"));
+    auto testLasHeader = [](const std::string& filePath, bool compressed){
+        PointTable table;
+        Options ops;
+        ops.add("filename", Support::datapath(filePath));
 
-    LasReader reader;
-    reader.setOptions(ops);
+        LasReader reader;
+        reader.setOptions(ops);
 
-    reader.prepare(table);
-    // This tests the copy ctor, too.
-    const LasHeader& h = reader.header();
+        reader.prepare(table);
+        // This tests the copy ctor, too.
+        const LasHeader& h = reader.header();
 
-    EXPECT_EQ(h.fileSignature(), "LASF");
-    EXPECT_EQ(h.fileSourceId(), 0);
-    EXPECT_TRUE(h.projectId().isNull());
-    EXPECT_EQ(h.versionMajor(), 1);
-    EXPECT_EQ(h.versionMinor(), 2);
-    EXPECT_EQ(h.creationDOY(), 0);
-    EXPECT_EQ(h.creationYear(), 0);
-    EXPECT_EQ(h.vlrOffset(), 227);
-    EXPECT_EQ(h.pointFormat(), 3);
-    EXPECT_EQ(h.pointCount(), 1065u);
-    EXPECT_DOUBLE_EQ(h.scaleX(), .01);
-    EXPECT_DOUBLE_EQ(h.scaleY(), .01);
-    EXPECT_DOUBLE_EQ(h.scaleZ(), .01);
-    EXPECT_DOUBLE_EQ(h.offsetX(), 0);
-    EXPECT_DOUBLE_EQ(h.offsetY(), 0);
-    EXPECT_DOUBLE_EQ(h.offsetZ(), 0);
-    EXPECT_DOUBLE_EQ(h.maxX(), 638982.55);
-    EXPECT_DOUBLE_EQ(h.maxY(), 853535.43);
-    EXPECT_DOUBLE_EQ(h.maxZ(), 586.38);
-    EXPECT_DOUBLE_EQ(h.minX(), 635619.85);
-    EXPECT_DOUBLE_EQ(h.minY(), 848899.70);
-    EXPECT_DOUBLE_EQ(h.minZ(), 406.59);
-    EXPECT_EQ(h.compressed(), false);
-    EXPECT_EQ(h.pointCountByReturn(0), 925u);
-    EXPECT_EQ(h.pointCountByReturn(1), 114);
-    EXPECT_EQ(h.pointCountByReturn(2), 21);
-    EXPECT_EQ(h.pointCountByReturn(3), 5);
-    EXPECT_EQ(h.pointCountByReturn(4), 0);
+        EXPECT_EQ(h.fileSignature(), "LASF");
+        EXPECT_EQ(h.fileSourceId(), 0);
+        EXPECT_TRUE(h.projectId().isNull());
+        EXPECT_EQ(h.versionMajor(), 1);
+        EXPECT_EQ(h.versionMinor(), 2);
+        EXPECT_EQ(h.creationDOY(), 0);
+        EXPECT_EQ(h.creationYear(), 0);
+        EXPECT_EQ(h.vlrOffset(), 227);
+        EXPECT_EQ(h.pointFormat(), 3);
+        EXPECT_EQ(h.pointCount(), 1065u);
+        EXPECT_DOUBLE_EQ(h.scaleX(), .01);
+        EXPECT_DOUBLE_EQ(h.scaleY(), .01);
+        EXPECT_DOUBLE_EQ(h.scaleZ(), .01);
+        EXPECT_DOUBLE_EQ(h.offsetX(), 0);
+        EXPECT_DOUBLE_EQ(h.offsetY(), 0);
+        EXPECT_DOUBLE_EQ(h.offsetZ(), 0);
+        EXPECT_DOUBLE_EQ(h.maxX(), 638982.55);
+        EXPECT_DOUBLE_EQ(h.maxY(), 853535.43);
+        EXPECT_DOUBLE_EQ(h.maxZ(), 586.38);
+        EXPECT_DOUBLE_EQ(h.minX(), 635619.85);
+        EXPECT_DOUBLE_EQ(h.minY(), 848899.70);
+        EXPECT_DOUBLE_EQ(h.minZ(), 406.59);
+        EXPECT_EQ(h.compressed(), compressed);
+        EXPECT_EQ(h.pointCountByReturn(0), 925u);
+        EXPECT_EQ(h.pointCountByReturn(1), 114);
+        EXPECT_EQ(h.pointCountByReturn(2), 21);
+        EXPECT_EQ(h.pointCountByReturn(3), 5);
+        EXPECT_EQ(h.pointCountByReturn(4), 0);
+    };
+
+    testLasHeader("las/simple.las", false);
+    testLasHeader("laz/simple.laz", true);
 }
 
 TEST(LasReaderTest, vlr)
@@ -476,6 +481,7 @@ void streamTest(const std::string src)
     PointTable t;
     lasReader.prepare(t);
     PointViewSet s = lasReader.execute(t);
+
     PointViewPtr p = *s.begin();
 
     class Checker : public Filter, public Streamable
@@ -653,6 +659,7 @@ TEST(LasReaderTest, Start)
         EXPECT_EQ(v->getFieldAs<int>(Dimension::Id::Y, 0), start + 100);
         EXPECT_EQ(v->getFieldAs<int>(Dimension::Id::Z, 0), start + 500);
     };
+    // Can't start at 70'000 when there are only 70'000 points.
     auto test2 = [source, &f]()
     {
         Stage *las = f.createStage("readers.las");
@@ -662,10 +669,7 @@ TEST(LasReaderTest, Start)
         las->setOptions(opts);
 
         PointTable t;
-        las->prepare(t);
-        PointViewSet s = las->execute(t);
-        PointViewPtr v = *s.begin();
-        EXPECT_EQ(v->size(), (point_count_t)0);
+        EXPECT_THROW(las->prepare(t), pdal_error);
     };
     auto test3 = [&f](int start, float xval, float yval, float zval)
     {
@@ -691,7 +695,6 @@ TEST(LasReaderTest, Start)
     test3(84226, 515387.0385, 4918363.847, 2336.32075);
     test3(84227, 515397.9628, 4918365.138, 2324.47825);
     test3(518861, 515398.052, 4918371.589, 2325.831);
-
     // Delete the created file.
     FileUtils::deleteFile(source);
 }
